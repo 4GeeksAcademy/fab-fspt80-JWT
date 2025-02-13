@@ -6,9 +6,10 @@ db = SQLAlchemy()
 class Users(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(80), nullable=False)
     email = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
-    is_active = db.Column(db.Boolean, default=True),
+    is_active = db.Column(db.Boolean, default=True)
 
     def set_password(self, password):
         self.password = generate_password_hash(password)
@@ -19,6 +20,7 @@ class Users(db.Model):
     def serialize(self):
         return {
             "id": self.id,
+            "nombre": self.nombre,
             "email": self.email,
             "is_active": self.is_active
         }

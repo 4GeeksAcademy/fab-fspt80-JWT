@@ -17,47 +17,74 @@ CORS(api)
 @api.route('/register', methods=['POST'])
 def register():
     try:
-        email = request.json.get('email', None)
-        password = request.json.get('password', None)
-        
-        if not email or not password:
-            raise Exception('Missing email or password')
-        
-        if not Users.query.filter_by(email=email).first():
+        data = request.json 
 
-            new_user = Users(email=email, is_active=True)
-            new_user.set_password(password)
-            db.session.add(new_user)
-            db.session.commit()
-            acces_token = create_access_token(identity=str(new_user.id))
-            return jsonify({"msg": "User registered successfully", 'token': acces_token}), 201
-        return jsonify({"msg": "User already exists, try login"}), 400
-    except Exception as error:   
-        return jsonify({"error": str(error)}), 400
+        nombre = data.get("nombre")
+        email = data.get("email")
+        password = data.get("password")
 
+        if not nombre or not email or not password:
+            return jsonify({"error": "Todos los campos son obligatorios"}), 400
+
+        nuevo_usuario = Users(nombre=nombre, email=email)
+        nuevo_usuario.set_password(password)
+
+        db.session.add(nuevo_usuario)
+        db.session.commit()
+
+        return jsonify({"msg": "Usuario registrado con éxito"}), 201
+    except Exception as e:
+        db.session.rollback()
+        print("Error en registro:", str(e))
+        return jsonify({"error": str(e)}), 500
 
 @api.route('/login', methods=['POST'])
+@api.route('/login', methods=['POST'])
 def login():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
+    try:
+        data = request.json
 
-    user = Users.query.filter_by(email=email).first()
-    if not user or not user.check_password(password):
-        return jsonify({"message": "Invalid credentials"}), 401
+        if not data.get('email') or not data.get('password'):
+            return jsonify({"error": "Datos incompletos"}), 400
 
-    token = create_access_token(identity=str(user.id), expires_delta=timedelta(hours=1))
-    return jsonify({"token": token}), 200
+        user = Users.query.filter_by(email=data['email']).first()
 
-#Auth Validation
-@api.route('/private', methods=['GET'])
+        if not user or not user.check_password(data['password']):
+            return jsonify({"error": "Credenciales inválidas"}), 401
+
+ 
+        access_token = create_access_token(identity=str(user.id))
+
+       
+        return jsonify({
+            "msg": "Inicio de sesión exitoso",
+            "token": access_token,
+            "user": user.serialize() 
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@api.route('/api/profile', methods=['GET'])
 @jwt_required()
-def private_route():
-    user_id = get_jwt_identity()
-    current_user = Users.query.get(int(user_id))
-    if not current_user:
-        return jsonify({"msg": "User not found"}), 404
-    return jsonify({"msg": f"Welcome {current_user.email}!"}), 200
+def get_profile():
+    try:
+        user_id = get_jwt_identity()
+        user = Users.query.get(user_id)
+
+        if not user:
+            return jsonify({"error": "Usuario no encontrado"}), 404
+
+        return jsonify({
+            "id": user.id,
+            "email": user.email,
+            "nombre": user.nombre,
+            "is_active": user.is_active
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @api.route('/logout', methods=['POST'])
